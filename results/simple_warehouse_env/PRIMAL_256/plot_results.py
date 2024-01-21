@@ -33,6 +33,11 @@ axs[2][0].plot(df['n_agents'], df['collision_rate'], 'mo-')
 axs[2][0].set_ylabel('collision_rate')
 axs[2][0].set_xticks([4, 8, 12, 16, 20, 22])
 
+# Plot the data for max_step
+axs[2][1].plot(df['n_agents'], df['max_step'], 'co-')
+axs[2][1].set_ylabel('max_step')
+axs[2][1].set_xticks([4, 8, 12, 16, 20, 22])
+
 
 # Set the x-axis label
 fig.text(0.5, 0.04, 'n_agents', ha='center')

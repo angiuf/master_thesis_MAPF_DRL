@@ -1,0 +1,3 @@
+[submodule "baselines/ConflictBasedSearch"]
+	path = baselines/ConflictBasedSearch
+	url = https://github.com/angiuf/ConflictBasedSearch

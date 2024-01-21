@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "../.."
+		},
+		{
+			"path": "../../../multi_agent_path_planning"
+		}
+	],
+	"settings": {}
+}
