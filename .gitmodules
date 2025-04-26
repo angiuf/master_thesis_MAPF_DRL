@@ -1,3 +1,27 @@
 [submodule "baselines/ConflictBasedSearch"]
 	path = baselines/ConflictBasedSearch
 	url = https://github.com/angiuf/ConflictBasedSearch
+[submodule "baselines/AB_Mapper"]
+	path = baselines/AB_Mapper
+	url = https://github.com/angiuf/AB_Mapper.git
+[submodule "baselines/PRIMAL"]
+	path = baselines/PRIMAL
+	url = https://github.com/angiuf/PRIMAL.git
+[submodule "baselines/CBSH2-RTC"]
+	path = baselines/CBSH2-RTC
+	url = https://github.com/angiuf/CBSH2-RTC.git
+[submodule "baselines/EECBS"]
+	path = baselines/EECBS
+	url = https://github.com/angiuf/EECBS.git
+[submodule "baselines/SCRIMP"]
+	path = baselines/SCRIMP
+	url = https://github.com/angiuf/SCRIMP.git
+[submodule "baselines/DCC"]
+	path = baselines/DCC
+	url = https://github.com/angiuf/DCC.git
+[submodule "baselines/PICO"]
+	path = baselines/PICO
+	url = https://github.com/angiuf/PICO.git
+[submodule "baselines/magat_pathplanning"]
+	path = baselines/magat_pathplanning
+	url = https://github.com/angiuf/magat_pathplanning.git
