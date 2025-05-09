@@ -36,6 +36,14 @@ def generate_random_cases(n_agents, n_cases, map_name, grid_size, obstacles, ope
     """
     base_output_dir = os.path.dirname(__file__) # Directory of the current script
     output_dir = os.path.join(base_output_dir, grid_size + "_" + map_name, "input", "start_and_goal", f"{n_agents}_agents")
+    warehouse_dir = os.path.join(base_output_dir, grid_size + "_" + map_name, "input/map")
+
+    # Check if the warehouse environment file exists
+    warehouse_env_path = os.path.join(warehouse_dir, grid_size + "_" + map_name + ".npy")
+    if not os.path.exists(warehouse_dir):
+        os.makedirs(warehouse_dir)
+    np.save(warehouse_env_path, obstacles)
+    print(f"Saved warehouse environment to {warehouse_env_path}")
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -47,6 +55,14 @@ def generate_random_cases(n_agents, n_cases, map_name, grid_size, obstacles, ope
     if len(open_list_tuples) < n_agents * 2:
         print(f"Error: Not enough open spots ({len(open_list_tuples)}) to place {n_agents} agents with unique starts and goals.")
         return
+    
+    # Save the map and obstacles for reference
+    map_filename = os.path.join(output_dir, f"{map_name}_{grid_size}_obstacles.npy")
+    if not os.path.exists(map_filename):
+        np.save(map_filename, obstacles)
+        print(f"Saved map and obstacles to {map_filename}")
+    else:
+        print(f"Map and obstacles already saved to {map_filename}")
 
     print(f"Generating {n_cases} cases for {n_agents} agents...")
 
@@ -184,9 +200,9 @@ def generate_random_cases(n_agents, n_cases, map_name, grid_size, obstacles, ope
         # Format: list of [start_row, start_col], [goal_row, goal_col] for each agent
         # Convert tuples back to lists for saving
         case_data = [[list(s), list(g)] for s, g in zip(final_starts, final_goals)] # New format: [[start], [goal]]
-        filename = f"{map_name}_{grid_size}_{n_agents}_agents_ID_{i:03d}.npy" # More descriptive filename
+        filename = f"{grid_size}_{map_name}_{n_agents}_agents_ID_{i:03d}.npy" # More descriptive filename
         filepath = os.path.join(output_dir, filename)
-        np.save(filepath, np.array(case_data, dtype=object)) # Save as object array to handle lists
+        np.save(filepath, np.array(case_data), allow_pickle=True) # Save as object array to handle lists
 
     print(f"Finished generating {n_cases} cases for {n_agents} agents in {grid_size}_{map_name}.")
 
