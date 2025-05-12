@@ -4,13 +4,12 @@ import random
 import sys
 import glob
 import importlib.util
+import yaml
 
 # Add the parent directory of 'PRIMAL' to the Python path
 # This allows importing from 'warehouse_environments'
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir) # This should be the 'Dataset' directory
-primal_dir = os.path.join(os.path.dirname(parent_dir), 'PRIMAL') # Go up one more level to 'baselines' then into 'PRIMAL'
-sys.path.append(primal_dir)
 
 def load_env_definition(filepath):
     """Loads the ENV_DEFINITION dictionary from a given python file."""
@@ -45,6 +44,14 @@ def generate_random_cases(n_agents, n_cases, map_name, grid_size, obstacles, ope
     np.save(warehouse_env_path, obstacles)
     print(f"Saved warehouse environment to {warehouse_env_path}")
 
+    map_yaml_filename = os.path.join(warehouse_dir, f"{grid_size}_{map_name}.yaml")
+    if not os.path.exists(map_yaml_filename):
+        write_yaml_file(obstacles, file_path=map_yaml_filename)
+        print(f"Saved map and obstacles to {map_yaml_filename}")
+    else:
+        print(f"Map and obstacles already saved to {map_yaml_filename}")
+
+
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
         print(f"Created directory: {output_dir}")
@@ -55,14 +62,6 @@ def generate_random_cases(n_agents, n_cases, map_name, grid_size, obstacles, ope
     if len(open_list_tuples) < n_agents * 2:
         print(f"Error: Not enough open spots ({len(open_list_tuples)}) to place {n_agents} agents with unique starts and goals.")
         return
-    
-    # Save the map and obstacles for reference
-    map_filename = os.path.join(output_dir, f"{map_name}_{grid_size}_obstacles.npy")
-    if not os.path.exists(map_filename):
-        np.save(map_filename, obstacles)
-        print(f"Saved map and obstacles to {map_filename}")
-    else:
-        print(f"Map and obstacles already saved to {map_filename}")
 
     print(f"Generating {n_cases} cases for {n_agents} agents...")
 
@@ -205,6 +204,17 @@ def generate_random_cases(n_agents, n_cases, map_name, grid_size, obstacles, ope
         np.save(filepath, np.array(case_data), allow_pickle=True) # Save as object array to handle lists
 
     print(f"Finished generating {n_cases} cases for {n_agents} agents in {grid_size}_{map_name}.")
+
+def write_yaml_file(matrix, file_path='custom_map.yaml'):
+    obstacles = []
+    for i in range(len(matrix)):
+        for j in range(len(matrix[0])):
+            if matrix[i][j] == 1:
+                obstacles.append((i, j))
+    dimensions = [matrix.shape[0], matrix.shape[1]]
+    data = {'map': {'dimensions': dimensions, 'obstacles': obstacles}}
+    with open(file_path, 'w') as outfile:
+        yaml.dump(data, outfile, default_flow_style=False)
 
 
 if __name__ == "__main__":
