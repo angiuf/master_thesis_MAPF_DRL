@@ -1,4 +1,20 @@
 import numpy as np
+import matplotlib
+import os
+
+# Try to use interactive backend first, fallback to Agg if it fails
+try:
+    # Check if we're in a display-capable environment
+    if os.environ.get('DISPLAY') and os.environ.get('DISPLAY') != '':
+        matplotlib.use('TkAgg')  # Interactive backend for WSL with X11
+        INTERACTIVE_MODE = True
+    else:
+        matplotlib.use('Agg')  # Non-interactive backend
+        INTERACTIVE_MODE = False
+except Exception:
+    matplotlib.use('Agg')  # Fallback to non-interactive
+    INTERACTIVE_MODE = False
+
 import matplotlib.pyplot as plt
 
 # --- PLACEHOLDER DATA --- 
@@ -176,7 +192,17 @@ def plot_environment(obstacles, open_list, grid_size_str, map_name):
     ]
     ax.legend(handles=legend_elements, bbox_to_anchor=(1.05, 1), loc='upper left')
     plt.tight_layout(rect=[0, 0, 0.85, 1]) # Adjust layout to make space for legend
-    plt.show()
+    
+    # Handle both interactive and non-interactive modes
+    if INTERACTIVE_MODE:
+        print("Displaying plot interactively...")
+        plt.show()
+    else:
+        # Save the figure for non-interactive environments
+        output_filename = f"{map_name}_{grid_size_str}.png"
+        plt.savefig(output_filename, dpi=150, bbox_inches='tight')
+        print(f"Environment plot saved as: {output_filename}")
+        plt.close()  # Close the figure to free memory
 
 if __name__ == "__main__":
     print(f"Plotting environment: {ENV_DEFINITION['map_name']} ({ENV_DEFINITION['grid_size']})")
