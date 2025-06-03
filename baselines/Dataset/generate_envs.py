@@ -51,6 +51,15 @@ def generate_random_cases(n_agents, n_cases, map_name, grid_size, obstacles, ope
     else:
         print(f"Map and obstacles already saved to {map_yaml_filename}")
 
+    cpp_map_filename = os.path.join(warehouse_dir, f"{grid_size}_{map_name}.map")
+    if not os.path.exists(cpp_map_filename):
+        if write_cpp_map_file(obstacles, cpp_map_filename, map_name):
+            print(f"Saved .map file to {cpp_map_filename}")
+        else:
+            print(f"Failed to create .map file at {cpp_map_filename}")
+    else:
+        print(f".map file already exists at {cpp_map_filename}")
+
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -216,6 +225,30 @@ def write_yaml_file(matrix, file_path='custom_map.yaml'):
     with open(file_path, 'w') as outfile:
         yaml.dump(data, outfile, default_flow_style=False)
 
+def write_cpp_map_file(obstacles, output_path, map_name):
+    """Create a .map file from obstacle matrix for cpp_mstar."""
+    try:
+        # Ensure output directory exists
+        output_dir = os.path.dirname(output_path)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        with open(output_path, 'w') as f:
+            f.write(f"type octile\n")
+            f.write(f"height {obstacles.shape[0]}\n")
+            f.write(f"width {obstacles.shape[1]}\n")
+            f.write("map\n")
+
+            for row in obstacles:
+                line = ''.join(['@' if cell == 1 else '.' for cell in row])
+                f.write(line + '\n')
+
+        print(f"Created .map file: {output_path}")
+        return True
+    except Exception as e:
+        print(f"Error creating .map file {output_path}: {e}")
+        return False
+
 
 if __name__ == "__main__":
     # --- Configuration Variables ---
@@ -247,6 +280,8 @@ if __name__ == "__main__":
         obstacles = env_details["obstacles"]
         open_list = env_details["open_list"] # Original list of lists
         agent_counts = env_details["agent_counts"]
+
+
 
         for n_agents in agent_counts:
             print(f"Generating cases for {n_agents} agents...")
