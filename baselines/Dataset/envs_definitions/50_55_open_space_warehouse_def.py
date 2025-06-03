@@ -23,12 +23,6 @@ def create_warehouse_50_55_obstacles():
     rows, cols = 50, 55
     obstacles = np.zeros((rows, cols), dtype=int)
     
-    # Fill the entire grid with boundaries (walls around the perimeter)
-    obstacles[0, :] = 1  # Top wall
-    obstacles[-1, :] = 1  # Bottom wall
-    obstacles[:, 0] = 1  # Left wall
-    obstacles[:, -1] = 1  # Right wall
-    
     # Create shelf structures (green areas in the image)
     # Top shelf rows
     for row in [2, 3, 6, 7, 10, 11]:
@@ -44,23 +38,14 @@ def create_warehouse_50_55_obstacles():
         for col in range(29, 53):  # Right section shelves
             obstacles[row, col] = 1
     
-    # Create small obstacle blocks (black squares in the center areas)
-    # Upper center obstacles
-    obstacles[13:15, 18:20] = 1
-    obstacles[13:15, 35:37] = 1
-    obstacles[16:18, 18:20] = 1
-    obstacles[16:18, 35:37] = 1
-    
     # Bottom area should remain mostly open (this is our modification)
     # We'll keep the bottom area (rows 26-48) mostly clear except for some minimal obstacles
     
     # Add minimal obstacles in bottom open area for navigation interest
     obstacles[30:32, 15:17] = 1
     obstacles[30:32, 38:40] = 1
-    obstacles[35:37, 25:27] = 1
-    obstacles[40:42, 20:22] = 1
-    obstacles[40:42, 33:35] = 1
-    obstacles[45:47, 27:29] = 1
+    obstacles[40:42, 15:17] = 1
+    obstacles[40:42, 38:40] = 1
     
     return obstacles
 
@@ -70,43 +55,32 @@ warehouse_50_55_obstacles = create_warehouse_50_55_obstacles()
 # Define open list (spawn/goal locations) - focusing on the bottom open area
 warehouse_50_55_open_list = []
 
-# Add open list locations around the perimeter and in the bottom open space
-# Left side entrance points
-for row in range(4, 12):
-    warehouse_50_55_open_list.append([row, 1])
+left_row_ranges = range(5,50)
 
-# Right side entrance points  
-for row in range(4, 12):
-    warehouse_50_55_open_list.append([row, 53])
+for r in left_row_ranges:
+    warehouse_50_55_open_list.append([r,0])
+    warehouse_50_55_open_list.append([r,54])
 
-# Bottom area open list (main open space area)
-for row in range(26, 48):
-    for col in range(5, 50, 8):  # Spread out locations in bottom area
-        if warehouse_50_55_obstacles[row, col] == 0:  # Only add if not obstacle
-            warehouse_50_55_open_list.append([row, col])
+for c in range(54):
+    warehouse_50_55_open_list.append([49,c])
+    
+middle_row_starts = [4,5,8,9,12,13,16,17,20,21]
 
-# Add some strategic locations in the middle corridors
-middle_corridor_locations = [
-    [4, 27], [5, 27], [8, 27], [9, 27], [12, 27], [13, 27],
-    [16, 27], [17, 27], [20, 27], [21, 27], [24, 27], [25, 27]
-]
-warehouse_50_55_open_list.extend(middle_corridor_locations)
-
-# Add locations at shelf ends for better connectivity
-shelf_end_locations = [
-    [2, 26], [3, 26], [6, 26], [7, 26], [10, 26], [11, 26],
-    [2, 28], [3, 28], [6, 28], [7, 28], [10, 28], [11, 28],
-    [14, 26], [15, 26], [18, 26], [19, 26], [22, 26], [23, 26],
-    [14, 28], [15, 28], [18, 28], [19, 28], [22, 28], [23, 28]
-]
-warehouse_50_55_open_list.extend(shelf_end_locations)
+# Loop through the starting row of each middle band
+for r in middle_row_starts:
+    # Iterate through the 5 rows within the current band (e.g., 8 to 12)
+    for c in range(5,23):
+        warehouse_50_55_open_list.append([r,c])
+    
+    for c in range(32,50):
+        warehouse_50_55_open_list.append([r,c])
 
 ENV_DEFINITION = {
     "grid_size": "50_55",
     "map_name": "open_space_warehouse_bottom",
     "obstacles": warehouse_50_55_obstacles,
     "open_list": warehouse_50_55_open_list,
-    "agent_counts": [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+    "agent_counts": [4, 8, 16, 32, 64, 128, 256]
 }
 
 def plot_environment(obstacles, open_list, grid_size_str, map_name):
