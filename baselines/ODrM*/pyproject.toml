@@ -1,0 +1,13 @@
+[project]
+name = "odrm-star"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "cython>=3.1.1",
+    "disutils>=1.4.32.post2",
+    "numpy>=2.2.6",
+    "pyyaml>=6.0.2",
+    "setuptools>=80.9.0",
+]
