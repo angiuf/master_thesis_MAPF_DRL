@@ -130,29 +130,29 @@ if __name__ == '__main__':
     
     # Map configurations for testing
     map_configurations = [
-        {
-            "map_name": "15_15_simple_warehouse",
-            "size": 15,
-            "n_tests": 200,
-            "list_num_agents": [4, 8, 12, 16, 20]
-        },
-        {
-            "map_name": "50_55_simple_warehouse",
-            "size": 50,
-            "n_tests": 200,
-            "list_num_agents": [4, 8, 16, 32]
-        },
-        {
-            "map_name": "50_55_long_shelves",
-            "size": 50,
-            "n_tests": 200,
-            "list_num_agents": [4, 8, 16]
-        },
+        # {
+        #     "map_name": "15_15_simple_warehouse",
+        #     "size": 15,
+        #     "n_tests": 200,
+        #     "list_num_agents": [22]
+        # },
+        # {
+        #     "map_name": "50_55_simple_warehouse",
+        #     "size": 50,
+        #     "n_tests": 200,
+        #     "list_num_agents": [4, 8, 16, 32]
+        # },
+        # {
+        #     "map_name": "50_55_long_shelves",
+        #     "size": 50,
+        #     "n_tests": 200,
+        #     "list_num_agents": [32]
+        # },
         {
             "map_name": "50_55_open_space_warehouse_bottom",
             "size": 50,
             "n_tests": 200,
-            "list_num_agents": [4, 8, 16, 32]
+            "list_num_agents": [16, 32]
         }
     ]
 

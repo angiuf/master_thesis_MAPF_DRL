@@ -7,17 +7,6 @@ cd /home/andrea/CODE/master_thesis_MAPF_DRL/baselines
 # python test_simple_warehouse_env.py
 # deactivate
 
-# # AB-MAPPER
-# echo "----------------------AB-MAPPER----------------------"
-# cd ../AB_Mapper/AB_Mapper
-# if [ -d ".venv" ]; then
-#     source .venv/bin/activate
-#     python test_ab_mapper_warehouse_env.py
-#     deactivate
-# else
-#     echo "Warning: .venv not found in AB_Mapper/AB_Mapper directory"
-# fi
-
 # # DCC
 # echo "-------------------------DCC-------------------------"
 # cd ../../DCC
@@ -27,6 +16,17 @@ cd /home/andrea/CODE/master_thesis_MAPF_DRL/baselines
 #     deactivate
 # else
 #     echo "Warning: .venv not found in DCC directory"
+# fi
+
+# # AB-MAPPER
+# echo "----------------------AB-MAPPER----------------------"
+# cd ./AB_Mapper/AB_Mapper
+# if [ -d ".venv" ]; then
+#     source .venv/bin/activate
+#     python test_ab_mapper_warehouse_env.py
+#     deactivate
+# else
+#     echo "Warning: .venv not found in AB_Mapper/AB_Mapper directory"
 # fi
 
 # SCRIMP
@@ -72,3 +72,15 @@ if [ -d ".venv" ]; then
 else
     echo "Warning: .venv not found in ODrM* directory"
 fi
+
+# # CBS
+# echo "-----------------------CBS------------------------"s
+# cd ./CBS
+# if [ -d ".venv" ]; then
+#     source .venv/bin/activate
+#     python test.py
+#     deactivate
+# else
+#     echo "Warning: .venv not found in CBS directory"
+# fi
+

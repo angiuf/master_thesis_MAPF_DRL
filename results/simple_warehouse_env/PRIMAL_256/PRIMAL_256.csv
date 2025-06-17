@@ -1,7 +1,0 @@
-n_agents,success_rate,collision_rate,total_step,avg_step,max_step,episode_length
-4,18.0,0.0,115.0,28.75,41.72222222222222,45.611111111111114
-8,2.0,0.0,219.75,27.46875,49.5,54.0
-12,0.0,0.0,nan,nan,nan,nan
-16,0.0,0.0,nan,nan,nan,nan
-20,0.0,0.0,nan,nan,nan,nan
-22,0.0,0.0,nan,nan,nan,nan

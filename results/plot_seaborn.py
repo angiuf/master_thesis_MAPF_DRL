@@ -25,8 +25,73 @@ MODEL_COLORS = {
     'PICO': '#e377c2',         # Pink
     'SCRIMP': '#7f7f7f',       # Gray
     'AB_Mapper': '#bcbd22',    # Olive
-    'magat_pathplanning': '#17becf',  # Cyan
+    'SILLM': '#17becf',        # Cyan
 }
+
+# Define different line styles for each model to handle overlapping lines
+MODEL_LINESTYLES = {
+    'CBS': '-',                # Solid
+    'CBSH2-RTC': '--',         # Dashed
+    'EECBS': '-.',             # Dash-dot
+    'ODrMstar': ':',           # Dotted
+    'DCC': '-',                # Solid
+    'PRIMAL': '--',            # Dashed
+    'PICO': '-.',              # Dash-dot
+    'SCRIMP': ':',             # Dotted
+    'AB_Mapper': '-',          # Solid
+    'SILLM': '--',             # Dashed
+}
+
+# Define different markers for each model
+MODEL_MARKERS = {
+    'CBS': 'o',                # Circle
+    'CBSH2-RTC': 's',          # Square
+    'EECBS': '^',              # Triangle up
+    'ODrMstar': 'v',           # Triangle down
+    'DCC': 'D',                # Diamond
+    'PRIMAL': 'P',             # Plus (filled)
+    'PICO': 'X',               # X (filled)
+    'SCRIMP': '*',             # Star
+    'AB_Mapper': 'h',          # Hexagon
+    'SILLM': 'p',              # Pentagon
+}
+
+# Additional colors for models not in the predefined list
+ADDITIONAL_COLORS = [
+    '#1a9850', '#543005', '#8c6bb1', '#c51b8a', '#feb24c', 
+    '#fd8d3c', '#fc4e2a', '#e31a1c', '#bd0026', '#800026',
+    '#045a8d', '#2b8cbe', '#74a9cf', '#bdc9e1', '#f1eef6'
+]
+
+def ensure_model_colors(df):
+    """Ensure all models in the dataset have assigned colors, line styles, and markers"""
+    all_models = df['model'].unique()
+    
+    # Find models without predefined colors
+    missing_models = [model for model in all_models if model not in MODEL_COLORS]
+    
+    # Default line styles and markers to cycle through
+    default_linestyles = ['-', '--', '-.', ':']
+    default_markers = ['o', 's', '^', 'v', 'D', 'P', 'X', '*', 'h', 'p']
+    
+    # Assign colors, line styles, and markers to missing models
+    for i, model in enumerate(missing_models):
+        # Assign color
+        if i < len(ADDITIONAL_COLORS):
+            MODEL_COLORS[model] = ADDITIONAL_COLORS[i]
+        else:
+            # Generate a random color if we run out of predefined additional colors
+            import random
+            MODEL_COLORS[model] = f"#{random.randint(0, 0xFFFFFF):06x}"
+        
+        # Assign line style
+        MODEL_LINESTYLES[model] = default_linestyles[i % len(default_linestyles)]
+        
+        # Assign marker
+        MODEL_MARKERS[model] = default_markers[i % len(default_markers)]
+    
+    if missing_models:
+        print(f"Assigned colors to new models: {missing_models}")
 
 def load_all_data(base_path):
     """Load all CSV data from the final_data directory"""
@@ -107,16 +172,21 @@ def create_plot(df, metric, map_name, save_dir):
         print(f"No data for map {map_name}")
         return
     
-    # For success rate, keep all data points (including 0s)
+    # For success rate and collision rate, keep all data points (including 0s)
     # For other metrics, filter out 0 values
     if 'success' not in metric.lower():
-        # Remove rows where the metric is 0
-        map_data = map_data[map_data[metric] != 0]
+        if 'collision' in metric.lower():
+            map_data = map_data[map_data['success_rate'] > 0]  # Ensure we only keep rows with non-zero success rate
+        else:
+            # Remove rows where the metric is 0
+            map_data = map_data[map_data[metric] != 0]
+
         
         # After filtering, check if we still have data
         if map_data.empty:
             print(f"Skipping {metric} for {map_name} - all non-zero values filtered out")
             return
+    
     
     # Check if metric has any data after filtering
     if map_data[metric].isna().all():
@@ -127,18 +197,16 @@ def create_plot(df, metric, map_name, save_dir):
     std_metric = f"{metric}_std"
     has_std = std_metric in map_data.columns and not map_data[std_metric].isna().all()
     
-    # Create color palette for the models in this dataset
-    unique_models = sorted(map_data['model'].unique())
-    colors = [MODEL_COLORS.get(model, '#000000') for model in unique_models]  # Default to black if model not found
-    model_palette = dict(zip(unique_models, colors))
+    # Use the global color palette - this ensures consistency across all plots
+    model_palette = MODEL_COLORS.copy()
     
     # Create main plot with sidebar layout
     fig = plt.figure(figsize=(16, 8))
     
     # Create main plot (takes up left 75% of the figure)
-    ax1 = plt.subplot2grid((1, 10), (0, 0), colspan=7)
+    ax1 = plt.subplot2grid((2, 10), (0, 0), colspan=7, rowspan=2)
     
-    # Sort the data by agents to ensure proper ordering
+    # Sort the data to ensure proper ordering
     map_data = map_data.sort_values('agents')
     
     # Convert agents to string to ensure categorical treatment
@@ -148,51 +216,76 @@ def create_plot(df, metric, map_name, save_dir):
     unique_agents = sorted(map_data['agents'].unique())
     unique_agents_str = [str(x) for x in unique_agents]
     
-    # Create the main metric plot (line plot) without legend
-    sns.lineplot(data=map_data, x='agents_str', y=metric, hue='model', marker='o', 
-                linewidth=2, markersize=8, ax=ax1, palette=model_palette, legend=False)
+    # Create the main metric plot with different line styles and markers for each model
+    # Instead of using seaborn lineplot, plot each model individually to apply custom styles
+    
+    # Add small horizontal offsets to prevent complete overlap of points
+    offset_step = 0.02  # Small offset between models
+    model_list = sorted(map_data['model'].unique())
+    
+    for i, model in enumerate(model_list):
+        model_data = map_data[map_data['model'] == model].copy()
+        
+        # Get style attributes for this model
+        color = MODEL_COLORS.get(model, '#000000')
+        linestyle = MODEL_LINESTYLES.get(model, '-')
+        marker = MODEL_MARKERS.get(model, 'o')
+        
+        # Create slight horizontal offset for each model to prevent overlap
+        x_positions = range(len(unique_agents_str))
+        offset = (i - len(model_list)/2) * offset_step
+        x_offset = [x + offset for x in x_positions]
+        
+        # Map agents to their position indices
+        agent_to_pos = {str(agent): pos for pos, agent in enumerate(unique_agents_str)}
+        model_x_positions = [agent_to_pos[str(agent)] + offset for agent in model_data['agents']]
+        
+        # Plot the line for this model
+        ax1.plot(model_x_positions, model_data[metric], 
+                color=color, linestyle=linestyle, marker=marker,
+                linewidth=2.5, markersize=8, label=model, alpha=0.8)
     
     # Set x-axis to show all agent counts as categorical with proper ordering
     ax1.set_xticks(range(len(unique_agents_str)))
     ax1.set_xticklabels(unique_agents_str)
     
     # Customize the main plot
-    ax1.set_title(f'{metric.replace("_", " ").title()} vs Number of Agents\n{map_name.replace("_", " ").title()}', 
+    ax1.set_title(f'{metric.replace("_", " ").title()}\n{map_name.replace("_", " ").title()}', 
                   fontsize=16, fontweight='bold')
     ax1.set_xlabel('Number of Agents', fontsize=14)
     ax1.set_ylabel(metric.replace("_", " ").title(), fontsize=14)
     ax1.grid(True, alpha=0.3)
     
-    # Create legend handles
+    # Create legend handles for ALL models (not just those in current dataset)
+    # This ensures consistent legend across all plots
+    all_models_in_data = df['model'].unique()  # Get all models from the entire dataset
     legend_handles = []
-    for model in sorted(map_data['model'].unique()):
-        from matplotlib.lines import Line2D
-        line = Line2D([0], [0], color=model_palette[model], linewidth=2, marker='o', markersize=8, label=model)
-        legend_handles.append(line)
     
-    # Position legend in right sidebar
-    legend = fig.legend(handles=legend_handles, loc='center', bbox_to_anchor=(0.85, 0.6), 
+    for model in sorted(all_models_in_data):
+        if model in MODEL_COLORS:  # Only include models that have defined colors
+            from matplotlib.lines import Line2D
+            line = Line2D([0], [0], 
+                         color=MODEL_COLORS[model], 
+                         linestyle=MODEL_LINESTYLES.get(model, '-'),
+                         marker=MODEL_MARKERS.get(model, 'o'),
+                         linewidth=2.5, markersize=8, label=model, alpha=0.8)
+            legend_handles.append(line)
+    
+    # Position legend closer to main plot - left side and higher up
+    legend = fig.legend(handles=legend_handles, loc='center', bbox_to_anchor=(0.75, 0.8), 
                        fontsize=11, title='Model', title_fontsize=12, frameon=True, 
                        fancybox=True, shadow=True)
     
-    # Create the std overlay plot if data exists
+    # Create the std subplot if data exists
     if has_std:
         # Filter out zero std values for better visualization
-        std_data = map_data[map_data[std_metric] > 0] if 'success' not in metric.lower() else map_data
+        std_data = map_data[map_data[std_metric] > 0] if 'success' not in metric.lower() and 'collision' not in metric.lower() else map_data
         
         if not std_data.empty:
-            # Determine overlay position based on metric type
-            if 'success' in metric.lower():
-                # Top right for success rate (values typically decrease with more agents)
-                overlay_pos = [0.52, 0.65, 0.2, 0.15]  # [left, bottom, width, height] - much smaller
-            else:
-                # Top left for other metrics (values typically increase with more agents)
-                overlay_pos = [0.15, 0.65, 0.2, 0.15]  # [left, bottom, width, height] - much smaller
+            # Create std deviation subplot in the right bottom area
+            ax2 = plt.subplot2grid((2, 10), (1, 7), colspan=3)
             
-            # Create overlay axes on the main plot
-            ax2 = fig.add_axes(overlay_pos)
-            
-            # Create bar plot in overlay
+            # Create bar plot in std subplot
             sns.barplot(data=std_data, x='agents_str', y=std_metric, hue='model', ax=ax2, palette=model_palette)
             
             # Set reasonable Y-axis limit for std plot to avoid outlier scaling
@@ -215,14 +308,14 @@ def create_plot(df, metric, map_name, save_dir):
                 
                 ax2.set_ylim(y_min, y_max * 1.1)  # Add 10% padding at top
             
-            # Customize the overlay plot - remove axis labels
-            ax2.set_title('Std Dev', fontsize=9, fontweight='bold')
+            # Customize the std subplot
+            ax2.set_title('Standard Deviation', fontsize=12, fontweight='bold')
             ax2.set_xlabel('')  # Remove x-axis label
             ax2.set_ylabel('')  # Remove y-axis label
-            ax2.tick_params(axis='both', which='major', labelsize=7)
+            ax2.tick_params(axis='both', which='major', labelsize=9)
             ax2.grid(True, alpha=0.3)
             
-            # Remove legend from overlay (main legend is in sidebar)
+            # Remove legend from std subplot (main legend is in sidebar)
             if ax2.get_legend():
                 ax2.get_legend().remove()
     
@@ -258,6 +351,9 @@ def main():
         print("No data to plot!")
         return
     
+    # Ensure all models have assigned colors
+    ensure_model_colors(df)
+    
     # Get metrics to plot
     metrics = get_metrics_to_plot(df)
     print(f"\nMetrics to plot: {metrics}")
@@ -265,6 +361,11 @@ def main():
     # Get unique maps
     maps = df['map'].unique()
     print(f"Maps to process: {maps}")
+    
+    # Print color assignments
+    print(f"\nModel color assignments:")
+    for model in sorted(df['model'].unique()):
+        print(f"  {model}: {MODEL_COLORS[model]}")
     
     # Create plots for each metric and map combination
     total_plots = len(metrics) * len(maps)
