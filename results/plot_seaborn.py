@@ -329,13 +329,194 @@ def create_plot(df, metric, map_name, save_dir):
     
     # Save the plot in the map-specific directory
     safe_metric_name = metric.replace("/", "_").replace(" ", "_")
-    filename = f"{safe_metric_name}.svg"
+    filename = f"{safe_metric_name}.pdf"
     filepath = map_dir / filename
     
-    plt.savefig(filepath, format='svg', bbox_inches='tight')
+    plt.savefig(filepath, format='pdf', bbox_inches='tight')
     plt.close()
     
     print(f"Saved plot: {safe_map_name}/{filename}")
+
+def plot_metric_across_environments(df, metric, maps, save_dir):
+    """Create a single figure with 4 subplots (one for each environment) for a given metric."""
+    import math
+    n_envs = len(maps)
+    
+    # Check if std column exists for this metric
+    std_metric = f"{metric}_std"
+    has_std = std_metric in df.columns and not df[std_metric].isna().all()
+    
+    # Create figure with variance subplots if std data exists
+    if has_std:
+        # Create a figure with main plots on the sides and variance plots stacked in the center
+        fig = plt.figure(figsize=(18, 6 * math.ceil(n_envs / 2)))
+        
+        # Create main plots (left and right sides)
+        main_axes = []
+        var_axes = []
+        
+        for idx, map_name in enumerate(maps):
+            # Main plot positioning - alternating left and right sides
+            row = idx // 2
+            col = idx % 2
+            
+            if col == 0:  # Left side
+                ax_main = plt.subplot2grid((math.ceil(n_envs / 2) * 2, 12), (row * 2, 0), colspan=4, rowspan=2)
+            else:  # Right side
+                ax_main = plt.subplot2grid((math.ceil(n_envs / 2) * 2, 12), (row * 2, 8), colspan=4, rowspan=2)
+            main_axes.append(ax_main)
+            
+            # Variance plot positioning - stacked in the center, smaller height
+            ax_var = plt.subplot2grid((math.ceil(n_envs / 2) * 2, 12), (row * 2 + col, 5), colspan=2)
+            var_axes.append(ax_var)
+            
+            # Plot main metric
+            map_data = df[df['map'] == map_name].copy()
+            if map_data.empty:
+                ax_main.set_title(f"{map_name}\n(No data)")
+                ax_main.axis('off')
+                ax_var.axis('off')
+                continue
+                
+            # Filter data similar to individual plots
+            if 'success' not in metric.lower():
+                if 'collision' in metric.lower():
+                    map_data = map_data[map_data['success_rate'] > 0]
+                else:
+                    map_data = map_data[map_data[metric] != 0]
+                    
+                if map_data.empty:
+                    ax_main.set_title(f"{map_name}\n(No data after filtering)")
+                    ax_main.axis('off')
+                    ax_var.axis('off')
+                    continue
+            
+            map_data = map_data.sort_values('agents')
+            map_data['agents_str'] = map_data['agents'].astype(str)
+            unique_agents = sorted(map_data['agents'].unique())
+            unique_agents_str = [str(x) for x in unique_agents]
+            offset_step = 0.02
+            model_list = sorted(map_data['model'].unique())
+            
+            # Plot main metric
+            for i, model in enumerate(model_list):
+                model_data = map_data[map_data['model'] == model].copy()
+                color = MODEL_COLORS.get(model, '#000000')
+                linestyle = MODEL_LINESTYLES.get(model, '-')
+                marker = MODEL_MARKERS.get(model, 'o')
+                agent_to_pos = {str(agent): pos for pos, agent in enumerate(unique_agents_str)}
+                offset = (i - len(model_list)/2) * offset_step
+                model_x_positions = [agent_to_pos[str(agent)] + offset for agent in model_data['agents']]
+                ax_main.plot(model_x_positions, model_data[metric], color=color, linestyle=linestyle, marker=marker,
+                        linewidth=2.5, markersize=8, label=model, alpha=0.8)
+            
+            ax_main.set_xticks(range(len(unique_agents_str)))
+            ax_main.set_xticklabels(unique_agents_str)
+            ax_main.set_title(map_name.replace('_', ' ').title(), fontsize=14, fontweight='bold')
+            ax_main.set_xlabel('Number of Agents', fontsize=12)
+            if idx % 2 == 0:  # Left column
+                ax_main.set_ylabel(metric.replace('_', ' ').title(), fontsize=12)
+            ax_main.grid(True, alpha=0.3)
+            
+            # Plot variance subplot
+            std_data = map_data[map_data[std_metric] > 0] if 'success' not in metric.lower() and 'collision' not in metric.lower() else map_data
+            
+            if not std_data.empty:
+                model_palette = MODEL_COLORS.copy()
+                sns.barplot(data=std_data, x='agents_str', y=std_metric, hue='model', ax=ax_var, palette=model_palette)
+                
+                # Set reasonable Y-axis limit for std plot
+                std_values = std_data[std_metric].dropna()
+                if len(std_values) > 0:
+                    q95 = std_values.quantile(0.95)
+                    q75 = std_values.quantile(0.75)
+                    q25 = std_values.quantile(0.25)
+                    median = std_values.median()
+                    iqr_limit = median + 3 * (q75 - q25)
+                    y_max = min(q95, iqr_limit)
+                    y_min = 0
+                    if y_max <= y_min:
+                        y_max = std_values.max()
+                    ax_var.set_ylim(y_min, y_max * 1.1)
+                
+                ax_var.set_title('Std Dev', fontsize=12, fontweight='bold')
+                ax_var.set_xlabel('')
+                ax_var.set_ylabel('')
+                ax_var.tick_params(axis='both', which='major', labelsize=9)
+                ax_var.grid(True, alpha=0.3)
+                
+                # Remove legend from variance subplot
+                if ax_var.get_legend():
+                    ax_var.get_legend().remove()
+            else:
+                ax_var.set_title('Std Dev\n(No data)', fontsize=12)
+                ax_var.axis('off')
+        
+        # Get legend from the first main plot that has data
+        handles, labels = None, None
+        for ax in main_axes:
+            if ax.get_legend_handles_labels()[0]:
+                handles, labels = ax.get_legend_handles_labels()
+                break
+        
+        if handles and labels:
+            fig.legend(handles, labels, loc='upper center', ncol=min(6, len(labels)), fontsize=11, title='Model', title_fontsize=12)
+        
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        
+    else:
+        # Original layout without variance plots
+        ncols = 2
+        nrows = math.ceil(n_envs / ncols)
+        fig, axes = plt.subplots(nrows, ncols, figsize=(16, 4 * nrows), sharey=True)
+        axes = axes.flatten()
+
+        for idx, map_name in enumerate(maps):
+            ax = axes[idx]
+            map_data = df[df['map'] == map_name].copy()
+            if map_data.empty:
+                ax.set_title(f"{map_name}\n(No data)")
+                ax.axis('off')
+                continue
+            map_data = map_data.sort_values('agents')
+            map_data['agents_str'] = map_data['agents'].astype(str)
+            unique_agents = sorted(map_data['agents'].unique())
+            unique_agents_str = [str(x) for x in unique_agents]
+            offset_step = 0.02
+            model_list = sorted(map_data['model'].unique())
+            for i, model in enumerate(model_list):
+                model_data = map_data[map_data['model'] == model].copy()
+                color = MODEL_COLORS.get(model, '#000000')
+                linestyle = MODEL_LINESTYLES.get(model, '-')
+                marker = MODEL_MARKERS.get(model, 'o')
+                agent_to_pos = {str(agent): pos for pos, agent in enumerate(unique_agents_str)}
+                offset = (i - len(model_list)/2) * offset_step
+                model_x_positions = [agent_to_pos[str(agent)] + offset for agent in model_data['agents']]
+                ax.plot(model_x_positions, model_data[metric], color=color, linestyle=linestyle, marker=marker,
+                        linewidth=2.5, markersize=8, label=model, alpha=0.8)
+            ax.set_xticks(range(len(unique_agents_str)))
+            ax.set_xticklabels(unique_agents_str)
+            ax.set_title(map_name.replace('_', ' ').title(), fontsize=14, fontweight='bold')
+            ax.set_xlabel('Number of Agents', fontsize=12)
+            if idx % ncols == 0:
+                ax.set_ylabel(metric.replace('_', ' ').title(), fontsize=12)
+            ax.grid(True, alpha=0.3)
+        
+        # Remove unused axes
+        for j in range(idx + 1, len(axes)):
+            axes[j].axis('off')
+        
+        handles, labels = axes[0].get_legend_handles_labels()
+        fig.legend(handles, labels, loc='upper center', ncol=min(4, len(labels)), fontsize=11, title='Model', title_fontsize=12)
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+    
+    fig.suptitle(f'{metric.replace("_", " ").title()} Across Environments', fontsize=18, fontweight='bold')
+    safe_metric_name = metric.replace('/', '_').replace(' ', '_')
+    filename = f"{safe_metric_name}_across_envs.pdf"
+    filepath = save_dir / filename
+    plt.savefig(filepath, format='pdf', bbox_inches='tight')
+    plt.close()
+    print(f"Saved multi-environment plot: {filename}")
 
 def main():
     # Define paths
@@ -371,19 +552,29 @@ def main():
     total_plots = len(metrics) * len(maps)
     plot_count = 0
     
-    print(f"\nCreating {total_plots} plots...")
+    print(f"\nCreating {total_plots} individual plots...")
     
-    for map_name in maps:
-        print(f"\nProcessing map: {map_name}")
+    # for map_name in maps:
+    #     print(f"\nProcessing map: {map_name}")
         
-        for metric in metrics:
-            plot_count += 1
-            print(f"  [{plot_count}/{total_plots}] Creating plot for {metric}")
+    #     for metric in metrics:
+    #         plot_count += 1
+    #         print(f"  [{plot_count}/{total_plots}] Creating plot for {metric}")
             
-            try:
-                create_plot(df, metric, map_name, save_dir)
-            except Exception as e:
-                print(f"    Error creating plot for {metric} on {map_name}: {e}")
+    #         try:
+    #             create_plot(df, metric, map_name, save_dir)
+    #         except Exception as e:
+    #             print(f"    Error creating plot for {metric} on {map_name}: {e}")
+    
+    # Create multi-environment plots for each metric
+    print(f"\nCreating {len(metrics)} multi-environment plots...")
+    
+    for i, metric in enumerate(metrics):
+        print(f"[{i+1}/{len(metrics)}] Creating multi-environment plot for {metric}")
+        try:
+            plot_metric_across_environments(df, metric, maps, save_dir)
+        except Exception as e:
+            print(f"    Error creating multi-environment plot for {metric}: {e}")
     
     print(f"\nCompleted! All plots saved in: {save_dir}")
     
