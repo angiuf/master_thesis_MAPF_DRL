@@ -172,6 +172,14 @@ def create_plot(df, metric, map_name, save_dir):
         print(f"No data for map {map_name}")
         return
     
+    # Exclude specific models from collision rate metrics
+    if 'collision' in metric.lower():
+        models_to_exclude = ['CBS', 'CBSH2-RTC', 'EECBS', 'ODrMstar']
+        map_data = map_data[~map_data['model'].isin(models_to_exclude)]
+        if map_data.empty:
+            print(f"Skipping {metric} for {map_name} - all models excluded for collision rate")
+            return
+    
     # For success rate and collision rate, keep all data points (including 0s)
     # For other metrics, filter out 0 values
     if 'success' not in metric.lower():
@@ -348,26 +356,20 @@ def plot_metric_across_environments(df, metric, maps, save_dir):
     
     # Create figure with variance subplots if std data exists
     if has_std:
-        # Create a figure with main plots on the sides and variance plots stacked in the center
-        fig = plt.figure(figsize=(18, 6 * math.ceil(n_envs / 2)))
+        # Create a figure with main plots in single column and variance plots in the rightmost column
+        fig = plt.figure(figsize=(16, 4 * n_envs))
         
-        # Create main plots (left and right sides)
+        # Create main plots (left column) and variance plots (right column)
         main_axes = []
         var_axes = []
         
         for idx, map_name in enumerate(maps):
-            # Main plot positioning - alternating left and right sides
-            row = idx // 2
-            col = idx % 2
-            
-            if col == 0:  # Left side
-                ax_main = plt.subplot2grid((math.ceil(n_envs / 2) * 2, 12), (row * 2, 0), colspan=4, rowspan=2)
-            else:  # Right side
-                ax_main = plt.subplot2grid((math.ceil(n_envs / 2) * 2, 12), (row * 2, 8), colspan=4, rowspan=2)
+            # Main plot positioning - single column layout
+            ax_main = plt.subplot2grid((n_envs, 10), (idx, 0), colspan=7)
             main_axes.append(ax_main)
             
-            # Variance plot positioning - stacked in the center, smaller height
-            ax_var = plt.subplot2grid((math.ceil(n_envs / 2) * 2, 12), (row * 2 + col, 5), colspan=2)
+            # Variance plot positioning - single rightmost column, stacked vertically for all environments
+            ax_var = plt.subplot2grid((n_envs, 10), (idx, 7), colspan=3)
             var_axes.append(ax_var)
             
             # Plot main metric
@@ -377,6 +379,16 @@ def plot_metric_across_environments(df, metric, maps, save_dir):
                 ax_main.axis('off')
                 ax_var.axis('off')
                 continue
+            
+            # Exclude specific models from collision rate metrics
+            if 'collision' in metric.lower():
+                models_to_exclude = ['CBS', 'CBSH2-RTC', 'EECBS', 'ODrMstar']
+                map_data = map_data[~map_data['model'].isin(models_to_exclude)]
+                if map_data.empty:
+                    ax_main.set_title(f"{map_name}\n(Models excluded for collision rate)")
+                    ax_main.axis('off')
+                    ax_var.axis('off')
+                    continue
                 
             # Filter data similar to individual plots
             if 'success' not in metric.lower():
@@ -410,12 +422,14 @@ def plot_metric_across_environments(df, metric, maps, save_dir):
                 ax_main.plot(model_x_positions, model_data[metric], color=color, linestyle=linestyle, marker=marker,
                         linewidth=2.5, markersize=8, label=model, alpha=0.8)
             
+            map_title = map_name.replace('_', ' ')
+            map_title = map_title + f" ({idx+1})"
             ax_main.set_xticks(range(len(unique_agents_str)))
             ax_main.set_xticklabels(unique_agents_str)
-            ax_main.set_title(map_name.replace('_', ' ').title(), fontsize=14, fontweight='bold')
+            ax_main.set_title(map_title.title(), fontsize=14, fontweight='bold')
             ax_main.set_xlabel('Number of Agents', fontsize=12)
-            if idx % 2 == 0:  # Left column
-                ax_main.set_ylabel(metric.replace('_', ' ').title(), fontsize=12)
+            # Always show y-label for single column layout
+            ax_main.set_ylabel(metric.replace('_', ' ').title(), fontsize=12)
             ax_main.grid(True, alpha=0.3)
             
             # Plot variance subplot
@@ -439,7 +453,7 @@ def plot_metric_across_environments(df, metric, maps, save_dir):
                         y_max = std_values.max()
                     ax_var.set_ylim(y_min, y_max * 1.1)
                 
-                ax_var.set_title('Std Dev', fontsize=12, fontweight='bold')
+                ax_var.set_title(f'Std Dev ({idx+1})', fontsize=12, fontweight='bold')
                 ax_var.set_xlabel('')
                 ax_var.set_ylabel('')
                 ax_var.tick_params(axis='both', which='major', labelsize=9)
@@ -460,16 +474,15 @@ def plot_metric_across_environments(df, metric, maps, save_dir):
                 break
         
         if handles and labels:
-            fig.legend(handles, labels, loc='upper center', ncol=min(6, len(labels)), fontsize=11, title='Model', title_fontsize=12)
+            fig.legend(handles, labels, loc='center', bbox_to_anchor=(0.5, 0.02), ncol=min(6, len(labels)), fontsize=11, title='Model', title_fontsize=12)
         
-        plt.tight_layout(rect=[0, 0, 1, 0.95])
-        
+        plt.tight_layout(rect=[0, 0.05, 1, 0.93])
+                
     else:
-        # Original layout without variance plots
-        ncols = 2
-        nrows = math.ceil(n_envs / ncols)
-        fig, axes = plt.subplots(nrows, ncols, figsize=(16, 4 * nrows), sharey=True)
-        axes = axes.flatten()
+        # Single column layout without variance plots
+        fig, axes = plt.subplots(n_envs, 1, figsize=(12, 4 * n_envs), sharey=True)
+        if n_envs == 1:
+            axes = [axes]  # Ensure axes is always a list
 
         for idx, map_name in enumerate(maps):
             ax = axes[idx]
@@ -478,6 +491,15 @@ def plot_metric_across_environments(df, metric, maps, save_dir):
                 ax.set_title(f"{map_name}\n(No data)")
                 ax.axis('off')
                 continue
+            
+            # Exclude specific models from collision rate metrics
+            if 'collision' in metric.lower():
+                models_to_exclude = ['CBS', 'CBSH2-RTC', 'EECBS', 'ODrMstar']
+                map_data = map_data[~map_data['model'].isin(models_to_exclude)]
+                if map_data.empty:
+                    ax.set_title(f"{map_name}\n(Models excluded for collision rate)")
+                    ax.axis('off')
+                    continue
             map_data = map_data.sort_values('agents')
             map_data['agents_str'] = map_data['agents'].astype(str)
             unique_agents = sorted(map_data['agents'].unique())
@@ -498,17 +520,15 @@ def plot_metric_across_environments(df, metric, maps, save_dir):
             ax.set_xticklabels(unique_agents_str)
             ax.set_title(map_name.replace('_', ' ').title(), fontsize=14, fontweight='bold')
             ax.set_xlabel('Number of Agents', fontsize=12)
-            if idx % ncols == 0:
-                ax.set_ylabel(metric.replace('_', ' ').title(), fontsize=12)
+            # Always show y-label for single column layout
+            ax.set_ylabel(metric.replace('_', ' ').title(), fontsize=12)
             ax.grid(True, alpha=0.3)
         
-        # Remove unused axes
-        for j in range(idx + 1, len(axes)):
-            axes[j].axis('off')
+        # No need to remove unused axes for single column layout
         
         handles, labels = axes[0].get_legend_handles_labels()
-        fig.legend(handles, labels, loc='upper center', ncol=min(4, len(labels)), fontsize=11, title='Model', title_fontsize=12)
-        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        fig.legend(handles, labels, loc='center', bbox_to_anchor=(0.5, 0.02), ncol=min(4, len(labels)), fontsize=11, title='Model', title_fontsize=12)
+        plt.tight_layout(rect=[0, 0.05, 1, 0.93])
     
     fig.suptitle(f'{metric.replace("_", " ").title()} Across Environments', fontsize=18, fontweight='bold')
     safe_metric_name = metric.replace('/', '_').replace(' ', '_')
@@ -539,9 +559,30 @@ def main():
     metrics = get_metrics_to_plot(df)
     print(f"\nMetrics to plot: {metrics}")
     
-    # Get unique maps
+    # Get unique maps and arrange them in the desired order
     maps = df['map'].unique()
-    print(f"Maps to process: {maps}")
+    
+    # Define the desired order for subplot arrangement
+    desired_order = [
+        '15_15_simple_warehouse',        # first
+        '50_55_simple_warehouse',        # second  
+        '50_55_long_shelves',            # third
+        '50_55_open_space_warehouse_bottom'  # fourth
+    ]
+    
+    # Reorder maps according to desired arrangement, keeping any additional maps at the end
+    ordered_maps = []
+    for map_name in desired_order:
+        if map_name in maps:
+            ordered_maps.append(map_name)
+    
+    # Add any maps not in the desired order list
+    for map_name in maps:
+        if map_name not in desired_order:
+            ordered_maps.append(map_name)
+    
+    maps = ordered_maps
+    print(f"Maps to process (in order): {maps}")
     
     # Print color assignments
     print(f"\nModel color assignments:")
@@ -554,17 +595,17 @@ def main():
     
     print(f"\nCreating {total_plots} individual plots...")
     
-    # for map_name in maps:
-    #     print(f"\nProcessing map: {map_name}")
+    for map_name in maps:
+        print(f"\nProcessing map: {map_name}")
         
-    #     for metric in metrics:
-    #         plot_count += 1
-    #         print(f"  [{plot_count}/{total_plots}] Creating plot for {metric}")
+        for metric in metrics:
+            plot_count += 1
+            print(f"  [{plot_count}/{total_plots}] Creating plot for {metric}")
             
-    #         try:
-    #             create_plot(df, metric, map_name, save_dir)
-    #         except Exception as e:
-    #             print(f"    Error creating plot for {metric} on {map_name}: {e}")
+            try:
+                create_plot(df, metric, map_name, save_dir)
+            except Exception as e:
+                print(f"    Error creating plot for {metric} on {map_name}: {e}")
     
     # Create multi-environment plots for each metric
     print(f"\nCreating {len(metrics)} multi-environment plots...")
